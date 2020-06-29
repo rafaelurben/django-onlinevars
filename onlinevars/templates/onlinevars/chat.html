@@ -1,0 +1,298 @@
+<!-- {% load static %} -->
+<html lang="de">
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <script>
+            var is_paused = true;
+
+            function copyToClipboard(str) {
+                const el = document.createElement('textarea');
+                el.value = str;
+                el.setAttribute('readonly', '');
+                el.style.position = 'absolute';
+                el.style.left = '-9999px';
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+            };
+
+            function scrollchat() {
+                var elem = document.getElementById("chat");
+                elem.scrollTop = elem.scrollHeight;
+            }
+
+            function addToChat(text, cls="info") {
+                console.log(cls+" - "+text);
+                var item = document.createElement("P");
+                item.classList.add(cls)
+                var content = document.createTextNode(text);
+                item.appendChild(content);
+                document.getElementById("chat").appendChild(item);
+                scrollchat();
+            }
+
+            function receive() {
+                if (!is_paused) {
+                    var request = new XMLHttpRequest();
+                    request.open('GET', "/onlinevars/api/v1/chat_{{ mykey }}?create=true&clean=true", true);
+
+                    request.onload = function() {
+                        if (request.status == 200) {
+                            var json = JSON.parse(request.responseText)
+                            var value = json.value;
+                            if (value != null) {
+                                var splittedtext = value.split("\n");
+                                for (row in splittedtext) {
+                                    addToChat(splittedtext[row], "incoming");
+                                }
+                                var audio = new Audio("{% static 'onlinevars/mp3/notification.mp3' %}");
+                                audio.play();
+                            };
+
+                            if (json.created) {
+                                addToChat("Chat erstellt!")
+                            }
+
+                            if (json.cleaned) {
+                                console.log("Chat geleert!")
+                            }
+
+                        } else {
+                            console.error(request.status, request.responseText);
+                        }
+                    };
+
+                    request.timeout = 5000;
+
+                    request.ontimeout = function(event) {
+                        console.warn("Receive: Request timeout!");
+                        addToChat("Zeitüberschreitung!", "info")
+                        pausechat();
+                    }
+
+                    request.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+                    request.send();
+
+                    setTimeout(receive, 1500);
+                }
+            }
+
+            function send(text="") {
+                if (text.trim()) {
+                    var request = new XMLHttpRequest();
+                    request.open('POST', "/onlinevars/api/v1/{{ postkey }}", true);
+                    request.onload = function(event) {
+                        if (request.status == 200) {
+                            addToChat(text, "outgoing")
+                        } else {
+                            console.error(request.statusText, request.responseText);
+                        }
+                    };
+
+                    request.timeout = 5000;
+
+                    request.ontimeout = function(event) {
+                        console.warn("Send: Request timeout!");
+                        addToChat("Nachricht konnte nicht gesendet werden!", "info");
+                    }
+
+                    request.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+                    if (window.location.hash.includes("anonym") || window.location.search.includes("anonym")) {
+                        request.send("append=true&multiple=true&value="+text);
+                    } else {
+                        request.send("append=true&multiple=true&value="+"[{{mykey}}] "+text);
+                    }
+                }
+            }
+
+            function sendFromForm(e) {
+                if (e.preventDefault) e.preventDefault();
+                send(document.getElementById("sendtext").value);
+                document.getElementById("sendtext").value = "";
+                return false;
+            }
+
+            function pausechat() {
+                if (!is_paused) {
+                    is_paused = true;
+                    addToChat('Empfang pausiert!');
+                    document.body.classList.add("paused");
+                    document.getElementById("pause").style.display = 'none';
+                    document.getElementById("resume").style.display = 'inline-block';
+                    document.getElementById("pauseicon").style.display = 'inline-block';
+                }
+            }
+
+            function startchat() {
+                if (is_paused) {
+                    is_paused = false;
+                    addToChat('Empfang gestartet!');
+                    receive();
+                    document.body.classList.remove("paused");
+                    document.getElementById("pause").style.display = 'inline-block';
+                    document.getElementById("resume").style.display = 'none';
+                    document.getElementById("close").style.display = 'inline-block';
+                    document.getElementById("pauseicon").style.display = 'none';
+                }
+            }
+
+            function closechat() {
+                pausechat()
+                var request = new XMLHttpRequest();
+                request.open('DELETE', "/onlinevars/api/v1/chat_{{ mykey }}", true);
+                request.send();
+                document.getElementById("close").style.display = 'none';
+                document.getElementById("resume").style.display = 'none';
+                addToChat('Chat geschlossen!');
+                window.location.href = "{% url 'onlinevars:chat-start' %}";
+            }
+
+            function clearchat() {
+                document.getElementById("chat").innerHTML = ""
+            }
+
+            window.onload = function onload() {
+                var form = document.getElementById('sendform');
+                if (form.attachEvent) {
+                    form.attachEvent("submit", sendFromForm);
+                } else {
+                    form.addEventListener("submit", sendFromForm);
+                }
+            }
+
+        </script>
+        <style>
+            body {
+                z-index: 1;
+            }
+
+            #menu {
+                min-height: 5vh;
+            }
+
+            #chat {
+                height: 80vh;
+                overflow-y: scroll;
+            }
+
+            #send, #send #sendform {
+                min-height: 2vh;
+            }
+
+            #menu, #chat, #send {
+                border: solid #000;
+                border-width: 1px;
+                border-radius: 5px;
+                padding: 5px;
+                margin: 5px;
+                min-width: 90vw;
+            }
+
+            #chat .incoming {
+                text-align: left;
+                background-color: rgba(0,255,0,0.25);
+            }
+
+            #chat .outgoing {
+                text-align: right;
+                background-color: rgba(255,0,0,0.25);
+            }
+
+            #chat .info {
+                text-align: center;
+                background-color: rgba(0,0,255,0.25);
+            }
+
+            #chat .incoming, #chat .outgoing, #chat .info {
+                padding: 5px 20px;
+                margin: 1px;
+                border-radius: 4px;
+            }
+
+            #send #sendform {
+                margin: 0px;
+            }
+
+            input[type=text] {
+                min-width: 75%;
+                padding: 12px 20px;
+                margin: 8px 0;
+                display: inline-block;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                box-sizing: border-box;
+            }
+
+            input[type="submit"] {
+                min-width: 20%;
+                background-color: #4CAF50;
+                color: white;
+                padding: 16px 32px;
+                text-decoration: none;
+                margin: 4px 2px;
+                cursor: pointer;
+                display: inline-block;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                box-sizing: border-box;
+            }
+
+            #menu button {
+                min-width: 15vw;
+                min-height: 5vh;
+                color: white;
+                padding: 16px 32px;
+                text-decoration: none;
+                margin: 4px 2px;
+                cursor: pointer;
+                display: inline-block;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                box-sizing: border-box;
+            }
+
+            #pauseicon {
+                position: absolute;
+                left: 0px;
+                right: 0px;
+                top: 0px;
+                bottom: 0px;
+                z-index: 3 !important;
+                font-size: 45vh;
+                pointer-events: none;
+
+            }
+
+            .paused {
+                background-color: rgba(125, 124, 122, 0.4);
+            }
+        </style>
+        <title>Onlinevars - Chat</title>
+    </head>
+
+    <body class="paused">
+        <center>
+            <div id="pauseicon" onclick="startchat()">&#9208;</div>
+            <div id="menu">
+                <button id="pause" style="background-color: #fcbe03; display: none;" onclick="pausechat()">Empfang Pausieren</button>
+                <button id="resume" style="background-color: #4CAF50;" onclick="startchat()">Empfang Starten/Fortsetzen</button>
+                <button id="close" style="background-color: #eb4034;" onclick="closechat()">Chat schliessen</button>
+                <button id="clear" style="background-color: #4934eb;" onclick="clearchat()">Chat leeren</button>
+                <button id="copykey" style="background-color: #cb0fff" onclick="copyToClipboard('{{mykey}}')">Key kopieren</button>
+            </div>
+
+            <div id="chat">
+
+            </div>
+
+            <div id="send">
+                <form id="sendform">
+                    <input type="text" id="sendtext" name="sendtext" required="">
+                    <input type="submit" id="sumbit" value="Nachricht senden">
+                </form>
+            </div>
+        </center>
+    </body>
+</html>
