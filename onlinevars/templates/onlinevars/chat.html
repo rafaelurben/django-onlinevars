@@ -23,8 +23,8 @@
                 elem.scrollTop = elem.scrollHeight;
             }
 
-            function addToChat(text, cls="info") {
-                console.log(cls+" - "+text);
+            function addToChat(text, cls = "info") {
+                console.log(cls + " - " + text);
                 var item = document.createElement("P");
                 item.classList.add(cls)
                 var content = document.createTextNode(text);
@@ -38,7 +38,7 @@
                     var request = new XMLHttpRequest();
                     request.open('GET', "/onlinevars/api/v1/chat_{{ mykey }}?create=true&clean=true", true);
 
-                    request.onload = function() {
+                    request.onload = function () {
                         if (request.status == 200) {
                             var json = JSON.parse(request.responseText)
                             var value = json.value;
@@ -66,10 +66,12 @@
 
                     request.timeout = 5000;
 
-                    request.ontimeout = function(event) {
+                    request.ontimeout = function (event) {
                         console.warn("Receive: Request timeout!");
                         addToChat("Zeitüberschreitung!", "info")
                         pausechat();
+                        var audio = new Audio("{% static 'onlinevars/mp3/notification.mp3' %}");
+                        audio.play();
                     }
 
                     request.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
@@ -79,11 +81,11 @@
                 }
             }
 
-            function send(text="") {
+            function send(text = "") {
                 if (text.trim()) {
                     var request = new XMLHttpRequest();
                     request.open('POST', "/onlinevars/api/v1/{{ postkey }}", true);
-                    request.onload = function(event) {
+                    request.onload = function (event) {
                         if (request.status == 200) {
                             addToChat(text, "outgoing")
                         } else {
@@ -93,22 +95,23 @@
 
                     request.timeout = 5000;
 
-                    request.ontimeout = function(event) {
+                    request.ontimeout = function (event) {
                         console.warn("Send: Request timeout!");
                         addToChat("Nachricht konnte nicht gesendet werden!", "info");
                     }
 
                     request.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
                     if (window.location.hash.includes("anonym") || window.location.search.includes("anonym")) {
-                        request.send("append=true&multiple=true&value="+text);
+                        request.send("append=true&multiple=true&value=" + text);
                     } else {
-                        request.send("append=true&multiple=true&value="+"[{{mykey}}] "+text);
+                        request.send("append=true&multiple=true&value=[{{mykey}}] " + text);
                     }
                 }
             }
 
             function sendFromForm(e) {
-                if (e.preventDefault) e.preventDefault();
+                if (e.preventDefault) 
+                    e.preventDefault();
                 send(document.getElementById("sendtext").value);
                 document.getElementById("sendtext").value = "";
                 return false;
@@ -161,27 +164,25 @@
                     form.addEventListener("submit", sendFromForm);
                 }
             }
-
         </script>
         <style>
             body {
                 z-index: 1;
             }
-
             #menu {
                 min-height: 5vh;
             }
-
             #chat {
                 height: 80vh;
                 overflow-y: scroll;
             }
-
-            #send, #send #sendform {
+            #send,
+            #send #sendform {
                 min-height: 2vh;
             }
-
-            #menu, #chat, #send {
+            #chat,
+            #menu,
+            #send {
                 border: solid #000;
                 border-width: 1px;
                 border-radius: 5px;
@@ -189,32 +190,28 @@
                 margin: 5px;
                 min-width: 90vw;
             }
-
             #chat .incoming {
                 text-align: left;
                 background-color: rgba(0,255,0,0.25);
             }
-
             #chat .outgoing {
                 text-align: right;
                 background-color: rgba(255,0,0,0.25);
             }
-
             #chat .info {
                 text-align: center;
                 background-color: rgba(0,0,255,0.25);
             }
-
-            #chat .incoming, #chat .outgoing, #chat .info {
+            #chat .incoming,
+            #chat .info,
+            #chat .outgoing {
                 padding: 5px 20px;
                 margin: 1px;
                 border-radius: 4px;
             }
-
             #send #sendform {
-                margin: 0px;
+                margin: 0;
             }
-
             input[type=text] {
                 min-width: 75%;
                 padding: 12px 20px;
@@ -224,7 +221,6 @@
                 border-radius: 4px;
                 box-sizing: border-box;
             }
-
             input[type="submit"] {
                 min-width: 20%;
                 background-color: #4CAF50;
@@ -238,7 +234,6 @@
                 border-radius: 8px;
                 box-sizing: border-box;
             }
-
             #menu button {
                 min-width: 15vw;
                 min-height: 5vh;
@@ -252,19 +247,16 @@
                 border-radius: 8px;
                 box-sizing: border-box;
             }
-
             #pauseicon {
                 position: absolute;
-                left: 0px;
-                right: 0px;
-                top: 0px;
-                bottom: 0px;
+                left: 0;
+                right: 0;
+                top: 0;
+                bottom: 0;
                 z-index: 3 !important;
                 font-size: 45vh;
                 pointer-events: none;
-
             }
-
             .paused {
                 background-color: rgba(125, 124, 122, 0.4);
             }
@@ -283,9 +275,7 @@
                 <button id="copykey" style="background-color: #cb0fff" onclick="copyToClipboard('{{mykey}}')">Key kopieren</button>
             </div>
 
-            <div id="chat">
-
-            </div>
+            <div id="chat"></div>
 
             <div id="send">
                 <form id="sendform">
